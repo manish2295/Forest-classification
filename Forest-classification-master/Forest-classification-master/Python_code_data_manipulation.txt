@@ -1,0 +1,98 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn import cross_validation, metrics
+from sklearn.grid_search import GridSearchCV
+
+import matplotlib.pylab as plt
+%matplotlib inline
+from matplotlib.pylab import rcParams
+rcParams['figure.figsize'] = 12, 4
+
+cd /home/gaurav/Documents/Python/Analytics vidya
+train = pd.read_csv('Train_nyOWmfK.csv')
+test = pd.read_csv('Test_bCtAN1w.csv')
+train.shape, test.shape
+train.dtypes
+
+#Combine into data:
+train['source']= 'train'
+test['source'] = 'test'
+data=pd.concat([train, test],ignore_index=True)
+data.apply(lambda x: sum(x.isnull()))
+
+
+# Look at categories of all object variables: var is list of all categorical variables
+var = ['Gender','Salary_Account','Mobile_Verified','Var1','Filled_Form','Device_Type','Var2','Source']
+for v in var:
+    print '\nFrequency count for variable %s'%v
+    print data[v].value_counts()
+    
+    
+len(data['City'].unique())
+#drop city because too many unique
+data.drop('City',axis=1,inplace=True)
+
+#Create age variable:
+data['Age'] = data['DOB'].apply(lambda x: 115 - int(x[-2:]))
+data['Age'].head()
+data.drop('DOB',axis=1,inplace=True)
+
+# Boxplot 
+data.boxplot(column=['EMI_Loan_Submitted'],return_type='axes')
+
+#Majority values missing so I'll create a new variable stating whether this is missing or note:
+data['EMI_Loan_Submitted_Missing'] = data['EMI_Loan_Submitted'].apply(lambda x: 1 if pd.isnull(x) else 0)
+data[['EMI_Loan_Submitted','EMI_Loan_Submitted_Missing']].head(10)
+data.drop('EMI_Loan_Submitted',axis=1,inplace=True)
+
+#Impute by median (0) because just 111 missing: it has median = 0
+data.boxplot(column='Existing_EMI',return_type='axes')
+data['Existing_EMI'].fillna(0, inplace=True)
+data['Source'] = data['Source'].apply(lambda x: 'others' if x not in ['S122','S133'] else x)
+
+
+# Numerical coding
+from sklearn.preprocessing import LabelEncoder
+le = LabelEncoder()
+var_to_encode = ['Device_Type','Filled_Form','Gender','Var1','Var2','Mobile_Verified','Source']
+for col in var_to_encode:
+    data[col] = le.fit_transform(data[col])
+
+# One-Hot Coding
+data = pd.get_dummies(data, columns=var_to_encode)
+data.columns
+    
+train = data.loc[data['source']=='train']
+test = data.loc[data['source']=='test']
+train.to_csv('train_modified.csv',index=False)
+test.to_csv('test_modified.csv',index=False)
+
+
+df['ApplicantIncome'].hist(bins=50)
+df.boxplot(column='ApplicantIncome')
+df.boxplot(column='ApplicantIncome', by = 'Education')
+temp1 = df['Credit_History'].value_counts(ascending=True)
+temp2 = df.pivot_table(values='Loan_Status',index=['Credit_History'],aggfunc=lambda x: x.map({'Y':1,'N':0}).mean())
+print 'Frequency Table for Credit History:' 
+print temp1
+
+print '\nProbility of getting loan for each Credit History class:' 
+print temp2
+
+fig = plt.figure(figsize=(8,4))
+ax1 = fig.add_subplot(121)
+ax1.set_xlabel('Credit_History')
+ax1.set_ylabel('Count of Applicants')
+ax1.set_title("Applicants by Credit_History")
+temp1.plot(kind='bar')
+
+ax2 = fig.add_subplot(122)
+temp2.plot(kind = 'bar')
+ax2.set_xlabel('Credit_History')
+ax2.set_ylabel('Probability of getting loan')
+ax2.set_title("Probability of getting loan by credit history")
+temp3 = pd.crosstab(df['Credit_History'], df['Loan_Status'])
+temp3.plot(kind='bar', stacked=True, color=['red','blue'], grid=False)
+
+
